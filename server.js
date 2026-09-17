@@ -78,53 +78,66 @@ app.delete('/clientes/:id', async (req,res) => {
 
 })
 
-app.listen(3000, ()=>(console.log("Servidor rodando em http://localhost:3000")))
 
 
 
 
-
-
-
-
-app.post('/pedidos', async (req,res) => {
+app.post('/pedidos', async (req, res) => {
     const { produto, valor, status, cliente_id } = req.body
-
-    try{
-
+    
+    try {
         const cliente = await pool.query(`SELECT id FROM clientes WHERE id = $1`, [cliente_id])
-
+        
         if (cliente.rows.length === 0) {
             return res.status(404).json({ erro: "Cliente não encontrado." })
         }
-
-
-        const resultado = await pool.query(`INSERT INTO produto (produto, valor, status, cliente_id) VALUES ($1, $2, $3, $4) RETURNING*`, 
-        [produto, valor, status, cliente_id])
-
-        return res.status(201).json(resultado.rows[0])
-    } 
+        
+        const resultado = await pool.query(
+            `INSERT INTO pedidos (produto, valor, status, cliente_id) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [produto, valor, status, cliente_id]
+            )
+            
+            return res.status(201).json(resultado.rows[0])
+        }
+        catch (erro) {
+            console.log(erro)
+            return res.status(500).json({ erro: "Erro ao cadastrar pedido." })
+        }
+    })
     
-    catch(erro){
-        return res.status(500).json({erro: "Erro ao cadastrar cliente."})
-    }
+    
+    
+    
+    
+    app.get('/pedidos', async (req, res) => {
+        try {
+            const resultado = await pool.query(`
+            SELECT pedidos.id, pedidos.produto, pedidos.valor, pedidos.status, clientes.nome, clientes.email
+            FROM pedidos
+            INNER JOIN clientes ON pedidos.cliente_id = clientes.id
+            `)
+            return res.status(200).json(resultado.rows)
+        }
+        catch (erro) {
+            return res.status(500).json({ erro: "Erro ao buscar pedido." })
+        }
+    })
 
-})
 
 
 
+    app.delete('/pedidos/:id', async (req,res) => {
+        const id = Number(req.params.id)
+        console.log(id)
+        try{
+          const deletacao =  await pool.query(`DELETE FROM pedidos WHERE id = $1`, [id])
+          return res.status(201).json({sucesso: `ID ${id} deletado com sucesso`})
+    
+        } 
+        catch(erro){
+            return res.status(500).json({erro: "Erro ao cadastrar cliente."})
+        }
+    
+    })
 
-
-app.get('/pedidos', async (req, res) => {
-    try {
-        const resultado = await pool.query(`
-            SELECT produtos.id, produtos.produto, produtos.valor, produtos.status, clientes.nome, clientes.email
-            FROM produtos
-            INNER JOIN clientes ON produtos.cliente_id = clientes.id
-        `)
-        return res.status(200).json(resultado.rows)
-    }
-    catch (erro) {
-        return res.status(500).json({ erro: "Erro ao buscar pedidos." })
-    }
-})
+    app.listen(3000, ()=>(console.log("Servidor rodando em http://localhost:3000")))
