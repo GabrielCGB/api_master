@@ -41,6 +41,34 @@ app.get('/clientes', async (req,res) => {
 
 
 
+app.get('/clientes/:id/pedidos', async (req, res) => {
+    const id = Number(req.params.id)
+
+    try {
+        const cliente = await pool.query(`SELECT id FROM clientes WHERE id = $1`, [id])
+
+        if (cliente.rows.length === 0) {
+            return res.status(404).json({ erro: "Cliente não encontrado." })
+        }
+
+        const resultado = await pool.query(`
+            SELECT pedidos.id, pedidos.produto, pedidos.valor, pedidos.status, clientes.nome, clientes.email
+            FROM pedidos
+            INNER JOIN clientes ON pedidos.cliente_id = clientes.id
+            WHERE pedidos.cliente_id = $1
+        `, [id])
+
+        return res.status(200).json(resultado.rows)
+    }
+    catch (erro) {
+        console.log(erro)
+        return res.status(500).json({ erro: "Erro ao buscar pedidos do cliente." })
+    }
+})
+
+
+
+
 
 app.put('/clientes/:id', async (req,res) => {
     const { nome, email } = req.body
@@ -86,6 +114,12 @@ app.post('/pedidos', async (req, res) => {
     const { produto, valor, status, cliente_id } = req.body
     
     try {
+        if(status != "pendente" || "pendente" || "entregue"){
+            return res.status(400).json({erro: "Erro no status do pedido"})
+        }
+
+
+
         const cliente = await pool.query(`SELECT id FROM clientes WHERE id = $1`, [cliente_id])
         
         if (cliente.rows.length === 0) {
@@ -110,12 +144,23 @@ app.post('/pedidos', async (req, res) => {
     
     
     app.get('/pedidos', async (req, res) => {
+        const { status } = req.query
+
         try {
-            const resultado = await pool.query(`
+            let query =`
             SELECT pedidos.id, pedidos.produto, pedidos.valor, pedidos.status, clientes.nome, clientes.email
             FROM pedidos
             INNER JOIN clientes ON pedidos.cliente_id = clientes.id
-            `)
+            `
+
+            const valores = []
+
+            if (status) {
+                valores.push(status)
+                query += `WHERE pedidos.status = $${valores.length}`
+            }
+
+            const resultado = await pool.query(query, valores)
             return res.status(200).json(resultado.rows)
         }
         catch (erro) {
